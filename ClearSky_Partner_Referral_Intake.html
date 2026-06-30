@@ -180,7 +180,19 @@ body{font-family:'Inter',Arial,sans-serif;background:#0B1E35;color:#1A2332;min-h
     document.getElementById('pa-signin-btn').style.display = 'none';
     document.getElementById('pa-err').style.display = 'none';
 
-    var email = (user.email || '').toLowerCase();
+    var email = (user.email || '').toLowerCase().trim();
+
+    if (!email) {
+      // Auth state came back without a usable email (can happen with a
+      // stale/incomplete cached session). Force a clean sign-out so the
+      // user gets a fresh sign-in button instead of being stuck on
+      // "Checking partner access..." forever.
+      partnerAuth.signOut().then(function() {
+        showPartnerErr('Could not read your account email. Please sign in again.');
+      });
+      return;
+    }
+
     partnerDb.collection('partnerAllowlist').doc(email).get().then(function(doc) {
       if (doc.exists && doc.data().active !== false) {
         window._partnerUser = user;
