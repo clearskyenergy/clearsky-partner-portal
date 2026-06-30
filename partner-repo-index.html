@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClearSky Partner Portal</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',Arial,sans-serif;background:#F4F1EC;color:#1A2332;min-height:100vh}
+:root{--navy:#0B1E35;--blue:#1B4F8A;--sky:#2E86C1;--gold:#C9A84C;--text:#1A2332;--sub:#6B7A8D;--bg:#F4F1EC;--border:#DDD8D0}
+
+.hdr{height:60px;background:var(--navy);display:flex;align-items:center;padding:0 24px;gap:14px;border-bottom:2px solid var(--gold)}
+.hdr-logo{width:32px;height:32px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--navy);font-size:13px}
+.hdr-title{color:#fff;font-weight:700;font-size:14px}
+.hdr-title span{color:var(--gold)}
+
+#main{max-width:760px;margin:0 auto;padding:48px 24px}
+.dash-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--gold)}
+.dash-welcome{font-size:32px;font-weight:700;color:var(--navy);margin-top:6px;letter-spacing:-.5px}
+.dash-sub{font-size:14px;color:var(--sub);margin-top:8px}
+
+.action-cards{background:#fff;border:1px solid var(--border);border-radius:14px;margin-top:32px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.action-card{display:flex;align-items:center;padding:24px;gap:18px;cursor:pointer;transition:background .12s;text-decoration:none;color:inherit;border-bottom:1px solid var(--border)}
+.action-card:last-child{border-bottom:none}
+.action-card:hover{background:#F8F9FA}
+.ac-icon{width:46px;height:46px;border-radius:10px;background:rgba(201,168,76,.12);border:1.5px solid rgba(201,168,76,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ac-text{flex:1}
+.ac-title{font-size:16px;font-weight:600;color:var(--navy);margin-bottom:3px}
+.ac-desc{font-size:13px;color:var(--sub)}
+.ac-arrow{color:var(--border);font-size:18px}
+.action-card:hover .ac-arrow{color:var(--sky)}
+
+#partner-identity-footer{margin-top:24px;text-align:center;font-size:12px;color:var(--sub)}
+#partner-identity-footer a{color:var(--sky);text-decoration:none}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CLEARSKY PARTNER AUTH GATE
+     Restricts access to this tool to individual Google accounts that
+     appear on the partner allowlist (Firestore collection
+     "partnerAllowlist", one document per approved email).
+     This is a HARD client-side+data gate: the tool's real content stays
+     hidden (display:none) until a signed-in, allowlisted user is
+     confirmed. Combined with Firestore security rules (see notes below),
+     this also prevents allowlisted partners from reading any other
+     ClearSky data, since they only ever request documents this tool asks
+     for, scoped to their own submissions.
+     ══════════════════════════════════════════════════════════════════ -->
+<style>
+#partner-auth-screen{
+  position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#0B1E35 0%,#1B4F8A 50%,#0D2440 100%);
+}
+.pa-card{background:rgba(255,255,255,.97);border-radius:18px;padding:46px 42px;width:400px;max-width:92vw;text-align:center;box-shadow:0 30px 70px rgba(0,0,0,.3)}
+.pa-logo{width:46px;height:46px;border-radius:10px;background:#0B1E35;color:#C9A84C;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;margin:0 auto 18px}
+.pa-title{font-size:19px;font-weight:700;color:#0B1E35;margin-bottom:4px}
+.pa-sub{font-size:12.5px;color:#6B7A8D;margin-bottom:26px}
+.pa-btn-google{width:100%;padding:12px 18px;border:1.5px solid #DDD8D0;border-radius:10px;background:#fff;cursor:pointer;font-size:13.5px;font-weight:600;color:#1A2332;display:flex;align-items:center;justify-content:center;gap:10px;font-family:inherit;transition:all .12s}
+.pa-btn-google:hover{border-color:#2E86C1;box-shadow:0 4px 12px rgba(46,134,193,.15)}
+.pa-btn-google:disabled{opacity:.6;cursor:default}
+.pa-note{font-size:10.5px;color:#6B7A8D;margin-top:16px;line-height:1.5}
+#pa-err{display:none;margin-top:14px;padding:10px 14px;background:rgba(229,57,53,.08);border:1px solid rgba(229,57,53,.2);border-radius:8px;font-size:11.5px;color:#E53935;font-weight:500;text-align:left}
+#pa-checking{display:none;margin-top:14px;font-size:12px;color:#6B7A8D}
+#partner-tool-content{display:none}
+</style>
+
+<div id="partner-auth-screen">
+  <div class="pa-card">
+    <div class="pa-logo">CS</div>
+    <div class="pa-title">ClearSky Partner Portal</div>
+    <div class="pa-sub">Sign in with the Google account your ClearSky contact approved for partner access.</div>
+    <button class="pa-btn-google" id="pa-signin-btn" onclick="partnerSignIn()">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign in with Google
+    </button>
+    <div id="pa-checking">Checking partner access…</div>
+    <div id="pa-err"></div>
+    <p class="pa-note">Access is limited to approved referral partners. If you believe you should have access, contact your ClearSky representative.</p>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="/partner-config.js"></script>
+
+<script>
+// ── PARTNER AUTH STATE ──────────────────────────────────────────
+(function() {
+  if (!window.CLEARSKY_PARTNER_CONFIG) {
+    document.getElementById('partner-auth-screen').innerHTML =
+      '<div class="pa-card"><div class="pa-title" style="color:#E53935">Configuration missing</div>'
+      + '<p class="pa-sub">window.CLEARSKY_PARTNER_CONFIG is undefined. Make sure /partner-config.js is deployed at the site root.</p></div>';
+    return;
+  }
+
+  var PCFG = window.CLEARSKY_PARTNER_CONFIG;
+  firebase.initializeApp(PCFG.firebase, 'partnerApp');
+  var partnerAuth = firebase.app('partnerApp').auth();
+  var partnerDb = firebase.app('partnerApp').firestore();
+
+  window._partnerAuth = partnerAuth;
+  window._partnerDb = partnerDb;
+  window._partnerUser = null;
+
+  partnerAuth.onAuthStateChanged(function(user) {
+    if (user) {
+      checkPartnerAllowlist(user);
+    } else {
+      showPartnerLogin();
+    }
+  });
+
+  function showPartnerLogin() {
+    document.getElementById('partner-auth-screen').style.display = 'flex';
+    document.getElementById('partner-tool-content').style.display = 'none';
+    document.getElementById('pa-checking').style.display = 'none';
+    document.getElementById('pa-signin-btn').style.display = 'flex';
+  }
+
+  function showPartnerErr(msg) {
+    var el = document.getElementById('pa-err');
+    el.textContent = msg;
+    el.style.display = 'block';
+    document.getElementById('pa-checking').style.display = 'none';
+    document.getElementById('pa-signin-btn').style.display = 'flex';
+  }
+
+  function checkPartnerAllowlist(user) {
+    document.getElementById('pa-checking').style.display = 'block';
+    document.getElementById('pa-signin-btn').style.display = 'none';
+    document.getElementById('pa-err').style.display = 'none';
+
+    var email = (user.email || '').toLowerCase();
+    partnerDb.collection('partnerAllowlist').doc(email).get().then(function(doc) {
+      if (doc.exists && doc.data().active !== false) {
+        window._partnerUser = user;
+        window._partnerRecord = doc.data();
+        document.getElementById('partner-auth-screen').style.display = 'none';
+        document.getElementById('partner-tool-content').style.display = 'block';
+        if (window.onPartnerAuthReady) window.onPartnerAuthReady(user, doc.data());
+      } else {
+        partnerAuth.signOut();
+        showPartnerErr('This Google account (' + email + ') is not on the approved partner list. Contact your ClearSky representative to request access.');
+      }
+    }).catch(function(err) {
+      partnerAuth.signOut();
+      showPartnerErr('Could not verify partner access: ' + err.message);
+    });
+  }
+
+  window.partnerSignIn = function() {
+    var btn = document.getElementById('pa-signin-btn');
+    btn.disabled = true;
+    var provider = new firebase.auth.GoogleAuthProvider();
+    partnerAuth.signInWithPopup(provider).catch(function(err) {
+      btn.disabled = false;
+      showPartnerErr(err.message);
+    });
+  };
+
+  window.partnerSignOut = function() {
+    partnerAuth.signOut();
+  };
+})();
+</script>
+<!-- ══ END PARTNER AUTH GATE ══ -->
+
+
+<div id="partner-tool-content">
+
+<div class="hdr">
+  <div class="hdr-logo">CS</div>
+  <div class="hdr-title">Clear<span>Sky</span> Partner Portal</div>
+</div>
+
+<div id="main">
+  <div class="dash-label">PARTNER DASHBOARD</div>
+  <div class="dash-welcome" id="welcome-name">Welcome</div>
+  <div class="dash-sub">Submit BESS opportunities and generate customer proposals.</div>
+
+  <div class="action-cards">
+    <a class="action-card" href="/ClearSky_Partner_Referral_Intake.html">
+      <div class="ac-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C9A84C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </div>
+      <div class="ac-text">
+        <div class="ac-title">Submit a New Opportunity</div>
+        <div class="ac-desc">Intake form for a new BESS prospect — site, electrical, and system details, queued for export.</div>
+      </div>
+      <div class="ac-arrow">›</div>
+    </a>
+
+    <a class="action-card" href="/sales-proposal.html">
+      <div class="ac-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C9A84C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+      </div>
+      <div class="ac-text">
+        <div class="ac-title">Generate a Sales Proposal</div>
+        <div class="ac-desc">Build a customer-facing proposal — cover page, site map, agreement terms, and 5-step process.</div>
+      </div>
+      <div class="ac-arrow">›</div>
+    </a>
+  </div>
+
+  <div id="partner-identity-footer">
+    Signed in as <span id="partner-identity"></span> &middot; <a href="#" onclick="partnerSignOut();return false;">Sign Out</a>
+  </div>
+</div>
+
+</div>
+<!-- /partner-tool-content -->
+
+<script>
+window.onPartnerAuthReady = function(user, record) {
+  var welcomeEl = document.getElementById('welcome-name');
+  var idEl = document.getElementById('partner-identity');
+  var firstName = (record.repName || user.displayName || user.email || '').split(' ')[0];
+  if (welcomeEl) welcomeEl.textContent = 'Welcome, ' + firstName;
+  if (idEl) idEl.textContent = (record.repName || user.displayName || user.email) + ' (' + (record.partnerAccount || 'Partner') + ')';
+};
+</script>
+
+</body>
+</html>
